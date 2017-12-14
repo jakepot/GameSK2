@@ -6,7 +6,7 @@
 #include <cstring>
 
 using namespace std;
-
+typedef struct PlayerInput{bool left; bool right; bool up; bool down; } PlayerInput;
 typedef struct GameState{int x; int y; } GameState;
 
 int main()
@@ -22,10 +22,12 @@ int main()
     sf::IpAddress recipient = "127.0.0.1";
     unsigned short port = 50000;
 
-    sf::RenderWindow window(sf::VideoMode(800, 600), "Gucci gang gucci gang gucci gang gucci gang gucci gang");
+    // window setup
+    sf::RenderWindow window(sf::VideoMode(800, 600), "Wow ale fajna gra jeszcze w takom nie grauem");
     window.setKeyRepeatEnabled(false);
     window.setVerticalSyncEnabled(true);
 
+    // view setup
     sf::View view(sf::Vector2f(128, 128), sf::Vector2f(400,300));
     window.setView(view);
 
@@ -63,38 +65,23 @@ int main()
                 window.close();
         }
         std::string key;
+        PlayerInput input = PlayerInput{};
 
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left))
-        {
-            key = "left";
-        }
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right))
-        {
-            key = "right";
-        }
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Up))
-        {
-            key = "up";
-        }
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Down))
-        {
-            key = "down";
-        }
-
-        window.clear();
+        input.left = sf::Keyboard::isKeyPressed(sf::Keyboard::Left);
+        input.right = sf::Keyboard::isKeyPressed(sf::Keyboard::Right);
+        input.up = sf::Keyboard::isKeyPressed(sf::Keyboard::Up);
+        input.down = sf::Keyboard::isKeyPressed(sf::Keyboard::Down);
 
         sf::Vector2i mousePos = sf::Mouse::getPosition(window);
         sf::Vector2i aimDirection = mousePos - sf::Vector2i(window.getSize().x/2, window.getSize().y/2);
 
-        cout << aimDirection.x << " - " << aimDirection.y << endl;
-
-//        cout << atan2(aimDirection.x, aimDirection.y) << endl;
         double radianRotation = atan2(aimDirection.x, -aimDirection.y) / M_PI * 180.0;
 
-        if (socket.send(key.c_str(), key.length(), recipient, port) != sf::Socket::Done)
+        if (socket.send(&input, sizeof input, recipient, port) != sf::Socket::Done)
         {
             std::cout << "send error" << std::endl;
         }
+
         char data[100];
         memset(data, 0, sizeof(data));
         size_t received;
@@ -114,7 +101,7 @@ int main()
         window.setView(view);
 //        sprite.setRotation(15*el);
 //        sprite.move(sf::Vector2f(x, y));
-
+        window.clear();
         window.draw(mapSprite);
         window.draw(sprite);
         window.display();

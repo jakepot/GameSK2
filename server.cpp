@@ -14,6 +14,7 @@
 
 using namespace std;
 
+typedef struct PlayerInput{bool left; bool right; bool up; bool down; } PlayerInput;
 typedef struct GameState{int x; int y; } GameState;
 
 int main(){
@@ -49,15 +50,20 @@ int main(){
             error(1, errno, "receive");
             break;
         }
-        cout << "received: " << recsize << endl;
-        string str(buffer);
-        if (str == "left") x -= movespeed;
-        else if (str == "right") x += movespeed;
-        else if (str == "up") y -= movespeed;
-        else if (str == "down") y += movespeed;
-        //else y += movespeed;
-        std::cout << str << std::endl;
-        string response = to_string(x) + " " + to_string(y);
+        auto * input = (PlayerInput*) buffer;
+//        cout << "received: " << recsize << endl;
+//        string str(buffer);
+//        if (str == "left") x -= movespeed;
+//        else if (str == "right") x += movespeed;
+//        else if (str == "up") y -= movespeed;
+//        else if (str == "down") y += movespeed;
+        if (input->left) x -= movespeed;
+        if (input->right) x += movespeed;
+        if (input->up) y -= movespeed;
+        if (input->down) y += movespeed;
+//        else y += movespeed;
+//        std::cout << str << std::endl;
+//        string response = to_string(x) + " " + to_string(y);
         auto state = GameState{x, y};
 //        cout << "Sending: " + response << endl;
         cout << "Sending: " + to_string(state.x) + " " + to_string(state.y) << endl;
