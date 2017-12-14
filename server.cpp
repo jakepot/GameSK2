@@ -37,7 +37,7 @@ int main(){
         return 1;
     }
     sockaddr_in clientAddr{};
-    socklen_t slen;
+    socklen_t slen = sizeof(clientAddr);
     ssize_t recsize;
 
     cout << "Server up on " << inet_ntoa(serverAddr.sin_addr) << " : " << ntohs(serverAddr.sin_port) << endl;
