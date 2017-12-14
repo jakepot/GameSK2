@@ -31,7 +31,6 @@ int main()
     sf::View view(sf::Vector2f(128, 128), sf::Vector2f(400,300));
     window.setView(view);
 
-    sf::Clock clock;
     sf::Texture texture;
 
     if (!texture.loadFromFile("resources/Pacman 3.png"))
@@ -94,13 +93,10 @@ int main()
 
         auto * state = (GameState*) data;
 
-        cout << state->x << "  " << state->y << endl;
         sprite.setPosition(state->x, state->y);
         sprite.setRotation((float)radianRotation);
         view.setCenter(state->x, state->y);
         window.setView(view);
-//        sprite.setRotation(15*el);
-//        sprite.move(sf::Vector2f(x, y));
         window.clear();
         window.draw(mapSprite);
         window.draw(sprite);
