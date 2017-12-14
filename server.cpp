@@ -40,7 +40,7 @@ int main(){
     socklen_t slen;
     ssize_t recsize;
 
-    cout << "Server up on " << inet_ntoa(serverAddr.sin_addr) << " : " << ntohs(serverAddr.sin_port) << ", entering main loop." << endl;
+    cout << "Server up on " << inet_ntoa(serverAddr.sin_addr) << " : " << ntohs(serverAddr.sin_port) << endl;
     while(true){
         char buffer[255];
         memset(buffer, 0, sizeof(buffer));
@@ -51,23 +51,15 @@ int main(){
             break;
         }
         auto * input = (PlayerInput*) buffer;
-//        cout << "received: " << recsize << endl;
-//        string str(buffer);
-//        if (str == "left") x -= movespeed;
-//        else if (str == "right") x += movespeed;
-//        else if (str == "up") y -= movespeed;
-//        else if (str == "down") y += movespeed;
+
+        //TODO * time elapsed
         if (input->left) x -= movespeed;
         if (input->right) x += movespeed;
         if (input->up) y -= movespeed;
         if (input->down) y += movespeed;
-//        else y += movespeed;
-//        std::cout << str << std::endl;
-//        string response = to_string(x) + " " + to_string(y);
+
         auto state = GameState{x, y};
-//        cout << "Sending: " + response << endl;
         cout << "Sending: " + to_string(state.x) + " " + to_string(state.y) << endl;
-//        sendto(serverFd, response.c_str(), response.length(), 0, (sockaddr *) &clientAddr, slen);
         sendto(serverFd, &state, sizeof(state), 0, (sockaddr *) &clientAddr, slen);
     }
     return 0;
