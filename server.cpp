@@ -14,12 +14,12 @@
 
 using namespace std;
 
-typedef struct PlayerInput{bool left; bool right; bool up; bool down; } PlayerInput;
+typedef struct PlayerInput{bool left; bool right; bool up; bool down; bool shoot; } PlayerInput;
 typedef struct GameState{int x; int y; } GameState;
 
 int main(){
     int x = 128, y = 128;
-    int movespeed = 3;
+    int moveSpeed = 3;
     int serverFd = socket(AF_INET, SOCK_DGRAM, 0);
     if (serverFd == -1) {
         error(1, errno, "socket");
@@ -53,10 +53,10 @@ int main(){
         auto * input = (PlayerInput*) buffer;
 
         //TODO * time elapsed
-        if (input->left) x -= movespeed;
-        if (input->right) x += movespeed;
-        if (input->up) y -= movespeed;
-        if (input->down) y += movespeed;
+        if (input->left) x -= moveSpeed;
+        if (input->right) x += moveSpeed;
+        if (input->up) y -= moveSpeed;
+        if (input->down) y += moveSpeed;
 
         auto state = GameState{x, y};
         cout << "Sending: " + to_string(state.x) + " " + to_string(state.y) << endl;
