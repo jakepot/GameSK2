@@ -18,20 +18,51 @@
 using namespace std;
 
 typedef struct PlayerInput{bool left; bool right; bool up; bool down; char name[20]; } PlayerInput;
-typedef struct GameState{int x; int y; } GameState; // bedzie usuniete
 
 typedef struct PlayerState{int x; int y; char name[20]; } PlayerState;
 typedef struct PlayerInfo{string name; sockaddr_in address{}; PlayerState plState{}; } PlayerInfo;
-typedef struct AllState{int numberOfPlayers{}; PlayerState players[16]; } AllState;
+typedef struct AllState{int numberOfPlayers{}; PlayerState players[16]{}; } AllState;
 
 int playersNo = 0;
+int moveSpeed = 3;
+int serverFd;
 
 AllState gameData;
 PlayerInfo players[16];
 PlayerState states[16];
 
-void hello() {
-    cout << "this thread is working" << endl;
+void receiving() {
+    while(true) {
+        sockaddr_in clientAddr{};
+        socklen_t slen = sizeof(clientAddr);
+        if (playersNo < 1)
+            break;
+        char buffer[2048];
+        memset(buffer, 0, sizeof(buffer));
+        bool noInput = false;
+        ssize_t recsize;
+
+        recsize = recvfrom(serverFd, buffer, sizeof buffer, 0, (sockaddr *) &clientAddr, &slen);
+        if (recsize < 0) {
+            //error(1, errno, "receive");
+            //break;
+            //continue;
+            noInput = true;
+            cout << "no input" << endl;
+        }
+        if (!noInput) {
+            auto *input = (PlayerInput *) buffer;
+            cout << "data from " << input->name << endl;
+            for (auto &pl : players) {
+                if (strcmp(input->name, pl.name.c_str()) == 0) {
+                    if (input->left) pl.plState.x -= moveSpeed;
+                    if (input->right) pl.plState.x += moveSpeed;
+                    if (input->up) pl.plState.y -= moveSpeed;
+                    if (input->down) pl.plState.y += moveSpeed;
+                }
+            }
+        }
+    }
 }
 
 int main(){
@@ -40,9 +71,7 @@ int main(){
     uniform_int_distribution<int> idistx(0, 800);
     uniform_int_distribution<int> idisty(0, 600);
     int timeToConnect = 20;
-    int x = 128, y = 128;
-    int moveSpeed = 3;
-    int serverFd = socket(AF_INET, SOCK_DGRAM, 0);
+    serverFd = socket(AF_INET, SOCK_DGRAM, 0);
     if (serverFd == -1) {
         error(1, errno, "socket");
         return 1;
@@ -62,20 +91,15 @@ int main(){
     socklen_t slen = sizeof(clientAddr);
     ssize_t recsize;
 
-    std::thread t(hello);
-
-    t.join();
-
     cout << "Server up on " << inet_ntoa(serverAddr.sin_addr) << " : " << ntohs(serverAddr.sin_port) << endl;
-
-    // idk
 
     struct timeval read_timeout{};
     read_timeout.tv_sec = 0;
     read_timeout.tv_usec = 10000;
     setsockopt(serverFd, SOL_SOCKET, SO_RCVTIMEO, &read_timeout, sizeof read_timeout);
 
-    clock_t begin = clock();
+//    clock_t begin = clock();
+    time_t start = time(nullptr);
 
     for(;;){
         char buffer[255];
@@ -85,7 +109,8 @@ int main(){
         if (recsize < 0) {
             //error(1, errno, "receive");
             //break;
-            if ((double(clock() - begin) / CLOCKS_PER_SEC*500) > timeToConnect) // zle
+//            if ((double(clock() - begin) / CLOCKS_PER_SEC*500) > timeToConnect) // zle
+            if (time(nullptr) - start > timeToConnect)
                 break;
             else
                 continue;
@@ -119,17 +144,17 @@ int main(){
                      << " : " << htons(players[i].address.sin_port) << endl;
         }
 
-        //cout << to_string(double(clock() - begin) / CLOCKS_PER_SEC*1000) << endl;
-        if ((double(clock() - begin) / CLOCKS_PER_SEC*500) > timeToConnect)
+//        if ((double(clock() - begin) / CLOCKS_PER_SEC*500) > timeToConnect)
+        if (time(nullptr) - start > timeToConnect)
             break;
     }
 
-    cout << endl << "Game starts now! time: " << to_string(double(clock() - begin) / CLOCKS_PER_SEC*1000) << endl << endl;
+    cout << endl << "Game starts now!" << endl << endl;
     string letsgomsg = "lets go";
 
     for (int i = 0; i < playersNo; i++){
-        states[i].x = idistx(rd);
-        states[i].y = idisty(rd);
+        states[i].x = idistx(mt);
+        states[i].y = idisty(mt);
         strcpy(states[i].name, players[i].name.c_str());
         players[i].plState = states[i];
     }
@@ -140,38 +165,17 @@ int main(){
     }
 
     read_timeout.tv_sec = 0;
-    read_timeout.tv_usec = 100000;
+    read_timeout.tv_usec = 50000; // TODO im wieksze tym mniejszy lag ale stutter przy obracaniu
     setsockopt(serverFd, SOL_SOCKET, SO_RCVTIMEO, &read_timeout, sizeof read_timeout);
 
-    bool noInput = false;
+    thread t(receiving);
 
     while(true){
         if (playersNo < 1)
             break;
-        char buffer[255];
-        memset(buffer, 0, sizeof(buffer));
 
-        recsize = recvfrom(serverFd, buffer, sizeof buffer, 0, (sockaddr*) &clientAddr, &slen);
-        if (recsize < 0) {
-            //error(1, errno, "receive");
-            //break;
-            //continue;
-            noInput = true;
-            cout << "no input" << endl;
-        }
-        if (!noInput) {
-            auto *input = (PlayerInput *) buffer;
-            cout << "data from " << input->name << endl;
-            for (auto &pl : players) {
-                if (strcmp(input->name,pl.name.c_str()) == 0) {
-                    if (input->left) pl.plState.x -= moveSpeed;
-                    if (input->right) pl.plState.x += moveSpeed;
-                    if (input->up) pl.plState.y -= moveSpeed;
-                    if (input->down) pl.plState.y += moveSpeed;
-                }
-            }
-        }
-        //TODO * time elapsed
+        char buffer[2048];
+        memset(buffer, 0, sizeof(buffer));
 
         gameData.numberOfPlayers = playersNo;
         for (int i = 0; i < playersNo; i++){
@@ -179,14 +183,11 @@ int main(){
         }
 
         for (auto pl : players){
-//            cout << "Sending: " + to_string(state.x) + " " + to_string(state.y) << endl;
             sendto(serverFd, &gameData, sizeof(gameData), 0, (sockaddr *) &pl.address, slen);
         }
+        cout << "sending game data" << endl;
 
-        noInput = false;
-//        auto state = GameState{x, y};
-//        cout << "Sending: " + to_string(state.x) + " " + to_string(state.y) << endl;
-//        sendto(serverFd, &state, sizeof(state), 0, (sockaddr *) &clientAddr, slen);
+        usleep(16667); // 60 Hz
     }
     return 0;
 }
