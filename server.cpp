@@ -27,9 +27,39 @@ int playersNo = 0;
 int moveSpeed = 3;
 int serverFd;
 
+int mapSizeX = 800;
+int mapSizeY = 600;
+
 AllState gameData;
 PlayerInfo players[16];
 PlayerState states[16];
+
+void movePlayer(PlayerInput * input, PlayerInfo &pl){
+    if (input->left) {
+        if (pl.plState.x - moveSpeed < 0)
+            pl.plState.x = 0;
+        else
+            pl.plState.x -= moveSpeed;
+    }
+    if (input->right) {
+        if (pl.plState.x + moveSpeed > mapSizeX)
+            pl.plState.x = mapSizeX;
+        else
+            pl.plState.x += moveSpeed;
+    }
+    if (input->up){
+        if (pl.plState.y - moveSpeed < 0)
+            pl.plState.y = 0;
+        else
+            pl.plState.y -= moveSpeed;
+    }
+    if (input->down) {
+        if (pl.plState.y + moveSpeed > mapSizeY)
+            pl.plState.y = mapSizeY;
+        else
+            pl.plState.y += moveSpeed;
+    }
+}
 
 void receiving() {
     while(true) {
@@ -55,10 +85,7 @@ void receiving() {
             cout << "data from " << input->name << endl;
             for (auto &pl : players) {
                 if (strcmp(input->name, pl.name.c_str()) == 0) {
-                    if (input->left) pl.plState.x -= moveSpeed;
-                    if (input->right) pl.plState.x += moveSpeed;
-                    if (input->up) pl.plState.y -= moveSpeed;
-                    if (input->down) pl.plState.y += moveSpeed;
+                    movePlayer(input, pl);
                 }
             }
         }
@@ -70,7 +97,9 @@ int main(){
     mt19937 mt(rd());
     uniform_int_distribution<int> idistx(0, 800);
     uniform_int_distribution<int> idisty(0, 600);
+
     int timeToConnect = 20;
+
     serverFd = socket(AF_INET, SOCK_DGRAM, 0);
     if (serverFd == -1) {
         error(1, errno, "socket");
