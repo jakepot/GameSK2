@@ -235,9 +235,15 @@ int main() {
         }
 
         gameData.numberOfBullets = static_cast<int>(bullets.size());
-        for (auto &b : bullets) {
-            b.xPos +=  b.xDir;
-            b.yPos += b.yDir;
+        //for (auto &b : bullets) {
+        auto i = bullets.begin();
+        while (i != bullets.end()){
+            i->xPos +=  i->xDir;
+            i->yPos += i->yDir;
+            if (i->xPos < 0 || i->xPos > mapSizeX || i->yPos < 0 || i->yPos > mapSizeY)
+                i = bullets.erase(i);
+            else
+                i++;
         }
 
         copy(bullets.begin(), bullets.end(), gameData.bullets);
