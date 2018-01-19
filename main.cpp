@@ -8,17 +8,36 @@
 
 using namespace std;
 
+typedef struct Bullet {
+    float xPos;
+    float yPos;
+    float xDir;
+    float yDir;
+} Bullet;
+
 typedef struct PlayerInput {
     bool left;
     bool right;
     bool up;
     bool down;
-    //bool shoot;
+    bool shoot;
     char name[20];
+    float xDir;
+    float yDir;
 } PlayerInput;
 
-typedef struct PlayerState{int x; int y; char name[20]; } PlayerState;
-typedef struct AllState{int numberOfPlayers{}; PlayerState players[16]{}; } AllState;
+typedef struct PlayerState {
+    int x;
+    int y;
+    char name[20];
+} PlayerState;
+
+typedef struct AllState {
+    int numberOfPlayers{};
+    PlayerState players[16]{};
+    int numberOfBullets{};
+    Bullet bullets[30];
+} AllState;
 
 template<typename T>
 sf::Vector2<T> normalize(const sf::Vector2<T> &source) {
@@ -41,6 +60,7 @@ sf::RenderWindow window;
 
 int controls = 0;
 
+// cos nie chce dzialac watkowo
 //void sendInput(string name, sf::IpAddress recipient, unsigned short port){
 /*void sendInput(){
     while(true) {
@@ -71,14 +91,16 @@ int controls = 0;
     }
 }*/
 
-void loadingScreen(const sf::Sprite &bg, sf::Sprite circle){
+void loadingScreen(const sf::Sprite &bg, sf::Sprite circle) {
+    sf::Clock clock;
     while (window.isOpen() && !gameStarted) {
         sf::Event event{};
         while (window.pollEvent(event)) {
             if (event.type == sf::Event::Closed)
                 window.close();
         }
-        circle.rotate(1);
+        //circle.rotate(1);
+        circle.setRotation(91 * clock.getElapsedTime().asSeconds());
         window.clear();
         window.draw(bg);
         window.draw(circle);
@@ -98,7 +120,6 @@ int main() {
 
     while (socket.bind(startport) != sf::Socket::Done) {
         std::cout << "cant bind to " << startport << std::endl;
-        //return 1;
         ++startport;
     }
 
@@ -111,7 +132,6 @@ int main() {
 
     // view setup
     sf::View view(sf::Vector2f(128, 128), sf::Vector2f(400, 300));
-    //window.setView(view);
 
     sf::Texture loadingbg;
     if (!loadingbg.loadFromFile("resources/loadingbg.png")) {
@@ -142,15 +162,12 @@ int main() {
     circleSprite.setOrigin(50, 50);
     circleSprite.setPosition(400, 400);
 
-    /*sf::Sprite bulletSprite;
-    bulletSprite.setTexture(bullet);
-    sf::Vector2f aim;
-    bool bulletUp = false;
-    float bulletInterval = 2.0f;
-    */
+    vector<sf::Sprite> bulletSprites(30, sf::Sprite(bullet));
+
+//    float bulletInterval = 2.0f;
     texture.setSmooth(true);
 
-    vector <sf::Sprite> sprites(16, sf::Sprite(texture));
+    vector<sf::Sprite> sprites(16, sf::Sprite(texture));
 
     for (auto &sprite : sprites) {
         sprite.setPosition(1.0, 2.0);
@@ -175,7 +192,7 @@ int main() {
     }
 
     cout << "Message: " << data << endl;
-    if (strcmp(data, "nameinuse") == 0){
+    if (strcmp(data, "nameinuse") == 0) {
         cout << "This name is already in use. Bye bye." << endl;
         return -1;
     }
@@ -201,36 +218,22 @@ int main() {
                 window.close();
         }
 
-        //cout << "playing" << endl;
-
-
-        //
         //sendInput(myID, recipient, port);
-        // try again
 
         if (controls == 0) {
             input.left = sf::Keyboard::isKeyPressed(sf::Keyboard::Left);
             input.right = sf::Keyboard::isKeyPressed(sf::Keyboard::Right);
             input.up = sf::Keyboard::isKeyPressed(sf::Keyboard::Up);
             input.down = sf::Keyboard::isKeyPressed(sf::Keyboard::Down);
-            //input.shoot = sf::Mouse::isButtonPressed(sf::Mouse::Left);
-        }
-        else {
+            input.shoot = sf::Mouse::isButtonPressed(sf::Mouse::Left);
+        } else {
             input.left = sf::Keyboard::isKeyPressed(sf::Keyboard::A);
             input.right = sf::Keyboard::isKeyPressed(sf::Keyboard::D);
             input.up = sf::Keyboard::isKeyPressed(sf::Keyboard::W);
             input.down = sf::Keyboard::isKeyPressed(sf::Keyboard::S);
-            //input.shoot = sf::Mouse::isButtonPressed(sf::Mouse::Right);
+            input.shoot = sf::Mouse::isButtonPressed(sf::Mouse::Right);
         }
 
-
-
-        if (input.up || input.right || input.left || input.down) {
-            cout << "sending input " << endl;
-            if (socket.send(&input, sizeof input, recipient, port) != sf::Socket::Done) {
-                std::cout << "send error" << std::endl;
-            }
-        }
 
         sf::Vector2i mousePos = sf::Mouse::getPosition(window);
         sf::Vector2f aimDirection =
@@ -238,33 +241,51 @@ int main() {
 
         double radianRotation = atan2(aimDirection.x, -aimDirection.y) / M_PI * 180.0;
 
+//        sf::Vector2f normalDir = normalize(aimDirection);
+
+        if (input.up || input.right || input.left || input.down || input.shoot) {
+            if (input.shoot) {
+                sf::Vector2f normalDir = normalize(aimDirection);
+                input.xDir = normalDir.x;
+                input.yDir = normalDir.y;
+            }
+            if (socket.send(&input, sizeof input, recipient, port) != sf::Socket::Done) {
+                std::cout << "send error" << std::endl;
+            }
+        }
+
+
         char gameData[2048];
         memset(gameData, 0, sizeof(gameData));
         size_t received1;
         sf::IpAddress sender1;
         unsigned short remotePort1;
-        if (socket.receive(gameData, 100, received1, sender1, remotePort1) != sf::Socket::Done) {
+        if (socket.receive(gameData, 2048, received1, sender1, remotePort1) != sf::Socket::Done) {
             std::cout << "receive error" << std::endl;
         }
 
         auto *state = (AllState *) gameData;
 
+        int me = 0;
+
+        for (int i = 0; i < state->numberOfPlayers; i++) {
+            sprites[i].setPosition(state->players[i].x, state->players[i].y);
+            if (strcmp(myID.c_str(), state->players[i].name) == 0)
+                me = i;
+        }
+
+        for (int i = 0; i < state->numberOfBullets; i++) {
+            bulletSprites[i].setPosition(state->bullets[i].xPos, state->bullets[i].yPos);
+        }
+
         /*if (bulletTimer.getElapsedTime().asSeconds() > bulletInterval && input.shoot) {
             aim = normalize(aimDirection);
-            bulletSprite.setPosition(sprite.getPosition());
+            bulletSprite.setPosition(sprites[me].getPosition());
             bulletUp = true;
             bulletTimer.restart();
         } else {
             bulletSprite.move(sf::Vector2f(aim.x * 2, aim.y * 2));
         }*/
-
-        int me = 0;
-
-        for (int i = 0; i < state->numberOfPlayers; i++){
-            sprites[i].setPosition(state->players[i].x, state->players[i].y);
-            if (strcmp(myID.c_str(), state->players[i].name) == 0)
-                me = i;
-        }
 
         sprites[me].setRotation((float) radianRotation);
         view.setCenter(sprites[me].getPosition());
@@ -273,7 +294,8 @@ int main() {
         window.draw(mapSprite);
         for (int i = 0; i < state->numberOfPlayers; i++)
             window.draw(sprites[i]);
-        //if (bulletUp) window.draw(bulletSprite);
+        for (int i = 0; i < state->numberOfBullets; i++)
+            window.draw(bulletSprites[i]);
         window.display();
     }
 
