@@ -14,43 +14,15 @@
 #include <arpa/inet.h>
 #include <thread>
 #include <random>
+#include "GameStructs.h"
 
 using namespace std;
 
-typedef struct PlayerInput {
-    bool left;
-    bool right;
-    bool up;
-    bool down;
-    bool shoot;
-    char name[20];
-    float xDir;
-    float yDir;
-} PlayerInput;
-typedef struct Bullet {
-    float xPos;
-    float yPos;
-    float xDir;
-    float yDir;
-} Bullet;
-
-typedef struct PlayerState {
-    int x;
-    int y;
-    char name[20];
-} PlayerState;
 typedef struct PlayerInfo {
     string name;
     sockaddr_in address{};
     PlayerState plState{};
 } PlayerInfo;
-typedef struct AllState {
-    int numberOfPlayers{};
-    PlayerState players[16]{};
-    int numberOfBullets{};
-    Bullet bullets[30]{};
-} AllState;
-
 
 int playersNo = 0;
 int moveSpeed = 3;
@@ -59,7 +31,6 @@ int serverFd;
 int maxBullets = 30;
 int mapSizeX = 800;
 int mapSizeY = 600;
-
 
 AllState gameData;
 PlayerInfo players[16];
@@ -235,7 +206,7 @@ int main() {
         }
 
         gameData.numberOfBullets = static_cast<int>(bullets.size());
-        //for (auto &b : bullets) {
+
         auto i = bullets.begin();
         while (i != bullets.end()){
             i->xPos +=  i->xDir;

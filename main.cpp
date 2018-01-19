@@ -5,39 +5,9 @@
 #include <sstream>
 #include <cstring>
 #include <atomic>
+#include "GameStructs.h"
 
 using namespace std;
-
-typedef struct Bullet {
-    float xPos;
-    float yPos;
-    float xDir;
-    float yDir;
-} Bullet;
-
-typedef struct PlayerInput {
-    bool left;
-    bool right;
-    bool up;
-    bool down;
-    bool shoot;
-    char name[20];
-    float xDir;
-    float yDir;
-} PlayerInput;
-
-typedef struct PlayerState {
-    int x;
-    int y;
-    char name[20];
-} PlayerState;
-
-typedef struct AllState {
-    int numberOfPlayers{};
-    PlayerState players[16]{};
-    int numberOfBullets{};
-    Bullet bullets[30];
-} AllState;
 
 template<typename T>
 sf::Vector2<T> normalize(const sf::Vector2<T> &source) {
