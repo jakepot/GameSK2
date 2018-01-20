@@ -32,8 +32,10 @@ int mapSizeX = 800;
 int mapSizeY = 600;
 
 AllState gameData;
-PlayerInfo players[16];
-PlayerState states[16];
+//PlayerInfo players[16];
+vector<PlayerInfo> players;
+//PlayerState states[16];
+//vector<PlayerState> states;
 vector<Bullet> bullets;
 
 void movePlayer(PlayerInput *input, PlayerInfo &pl) {
@@ -67,8 +69,9 @@ void receiving() {
     while (true) {
         sockaddr_in clientAddr{};
         socklen_t slen = sizeof(clientAddr);
-        if (playersNo < 1)
-            break;
+        /*if (playersNo < 1)
+            break;*/
+        if (players.empty()) break;
         char buffer[2048];
         memset(buffer, 0, sizeof(buffer));
         bool noInput = false;
@@ -145,27 +148,35 @@ int main() {
 
         bool nameInUse = false;
 
-        for (int i = 0; i < playersNo; i++) {
-            if (strcmp(players[i].name.c_str(), buffer) == 0) {
-                cout << players[i].name.c_str() << "  =  " << buffer << endl;
+//        for (int i = 0; i < playersNo; i++) {
+        for (auto pl : players) {
+            if (strcmp(pl.name.c_str(), buffer) == 0) {
+                cout << pl.name.c_str() << "  =  " << buffer << endl;
                 nameInUse = true;
                 string returnMessage = "nameinuse";
                 sendto(serverFd, returnMessage.c_str(), returnMessage.size(), 0, (sockaddr *) &clientAddr, slen);
+                break;
             }
         }
 
         if (!nameInUse) {
-            players[playersNo].name = buffer;
-            players[playersNo].address = clientAddr;
-            playersNo++;
+            PlayerInfo inf{};
+            inf.name = buffer;
+            inf.address = clientAddr;
+            //playersNo++;
+            players.push_back(inf);
 
             string returnMessage = "welcome";
             sendto(serverFd, returnMessage.c_str(), returnMessage.size(), 0, (sockaddr *) &clientAddr, slen);
         }
 
-        for (int i = 0; i < playersNo; i++) {
+        /*for (int i = 0; i < playersNo; i++) {
             cout << players[i].name.c_str() << "  -  " << inet_ntoa(players[i].address.sin_addr)
                  << " : " << htons(players[i].address.sin_port) << endl;
+        }*/
+        for (auto pl : players) {
+            cout << pl.name << "  -  " << inet_ntoa(pl.address.sin_addr)
+                 << " : " << htons(pl.address.sin_port) << endl;
         }
 
         if (time(nullptr) - start > timeToConnect)
@@ -175,16 +186,15 @@ int main() {
     cout << endl << "Game starts now!" << endl << endl;
     string letsgomsg = "lets go";
 
-    for (int i = 0; i < playersNo; i++) {
-        states[i].x = idistx(mt);
-        states[i].y = idisty(mt);
-        strcpy(states[i].name, players[i].name.c_str());
-        players[i].plState = states[i];
+    for (auto &pl : players) {
+        PlayerState st{idistx(mt), idisty(mt)};
+        strcpy(st.name, pl.name.c_str());
+        pl.plState = st;
     }
 
-    for (int i = 0; i < playersNo; i++) {
-        cout << players[i].name << " : " << players[i].plState.x << " - " << players[i].plState.y << endl;
-        sendto(serverFd, letsgomsg.c_str(), letsgomsg.size(), 0, (sockaddr *) &players[i].address, slen);
+    for (auto pl : players) {
+        cout << pl.name << " : " << pl.plState.x << " - " << pl.plState.y << endl;
+        sendto(serverFd, letsgomsg.c_str(), letsgomsg.size(), 0, (sockaddr *) &pl.address, slen);
     }
 
     read_timeout.tv_sec = 0;
@@ -200,15 +210,15 @@ int main() {
         char buffer[2048];
         memset(buffer, 0, sizeof(buffer));
 
-        gameData.numberOfPlayers = playersNo;
-        for (int i = 0; i < playersNo; i++) {
+        gameData.numberOfPlayers = (int)players.size();
+        for (int i = 0; i < gameData.numberOfPlayers; i++) {
             gameData.players[i] = players[i].plState;
         }
 
         gameData.numberOfBullets = static_cast<int>(bullets.size());
 
         bool hit = false;
-        
+
         auto i = bullets.begin();
         while (i != bullets.end()){
             hit = false;
@@ -219,8 +229,16 @@ int main() {
                 continue;
             }
             else {
-                for (int j = 0; j < playersNo; j++) {
+                /*for (int j = 0; j < playersNo; j++) {
                     if (max(abs(i->xPos - players[j].plState.x), abs(i->yPos - players[j].plState.y)) < 30) {
+                        i = bullets.erase(i);
+                        hit = true;
+                        break;
+                    }
+                }*/
+                // TODO dodaj zabijanie
+                for (auto pl : players) {
+                    if (max(abs(i->xPos - pl.plState.x), abs(i->yPos - pl.plState.y)) < 30) {
                         i = bullets.erase(i);
                         hit = true;
                         break;
