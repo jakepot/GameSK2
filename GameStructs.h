@@ -30,6 +30,7 @@ typedef struct PlayerState {
     int x;
     int y;
     char name[20];
+    bool alive;
 } PlayerState;
 
 typedef struct AllState {

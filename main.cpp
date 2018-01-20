@@ -123,9 +123,17 @@ int main() {
     if (!bullet.loadFromFile("resources/bullet.png")) {
         return 0;
     }
+    sf::Texture timb;
+    if (!timb.loadFromFile("resources/timbbb.png")) {
+        return 0;
+    }
 
-    sf::Sprite mapSprite;
-    mapSprite.setTexture(map);
+    bullet.setSmooth(true);
+    texture.setSmooth(true);
+    circle.setSmooth(true);
+    map.setSmooth(true);
+
+    sf::Sprite mapSprite(map);
 
     sf::Sprite loadingSprite(loadingbg);
     sf::Sprite circleSprite(circle);
@@ -133,11 +141,14 @@ int main() {
     circleSprite.setPosition(400, 400);
 
     vector<sf::Sprite> bulletSprites(MAX_BULLETS, sf::Sprite(bullet));
+    vector<sf::Sprite> timbSprites(MAX_PLAYERS, sf::Sprite(timb));
 
-//    float bulletInterval = 2.0f;
-    texture.setSmooth(true);
+    vector<sf::Sprite> sprites(MAX_PLAYERS, sf::Sprite(texture));
 
-    vector<sf::Sprite> sprites(16, sf::Sprite(texture));
+    for (auto &tim : timbSprites) {
+        tim.setOrigin(sf::Vector2f(86, 86));
+        tim.setScale(0.6f, 0.6f);
+    }
 
     for (auto &sprite : sprites) {
         sprite.setPosition(1.0, 2.0);
@@ -211,8 +222,6 @@ int main() {
 
         double radianRotation = atan2(aimDirection.x, -aimDirection.y) / M_PI * 180.0;
 
-//        sf::Vector2f normalDir = normalize(aimDirection);
-
         if (input.up || input.right || input.left || input.down || input.shoot) {
             if (input.shoot) {
                 sf::Vector2f normalDir = normalize(aimDirection);
@@ -240,6 +249,7 @@ int main() {
 
         for (int i = 0; i < state->numberOfPlayers; i++) {
             sprites[i].setPosition(state->players[i].x, state->players[i].y);
+            timbSprites[i].setPosition(state->players[i].x, state->players[i].y);
             if (strcmp(myID.c_str(), state->players[i].name) == 0)
                 me = i;
         }
@@ -248,22 +258,13 @@ int main() {
             bulletSprites[i].setPosition(state->bullets[i].xPos, state->bullets[i].yPos);
         }
 
-        /*if (bulletTimer.getElapsedTime().asSeconds() > bulletInterval && input.shoot) {
-            aim = normalize(aimDirection);
-            bulletSprite.setPosition(sprites[me].getPosition());
-            bulletUp = true;
-            bulletTimer.restart();
-        } else {
-            bulletSprite.move(sf::Vector2f(aim.x * 2, aim.y * 2));
-        }*/
-
         sprites[me].setRotation((float) radianRotation);
         view.setCenter(sprites[me].getPosition());
         window.setView(view);
         window.clear();
         window.draw(mapSprite);
         for (int i = 0; i < state->numberOfPlayers; i++)
-            window.draw(sprites[i]);
+            window.draw((state->players[i].alive ? sprites : timbSprites)[i]);
         for (int i = 0; i < state->numberOfBullets; i++)
             window.draw(bulletSprites[i]);
         window.display();
