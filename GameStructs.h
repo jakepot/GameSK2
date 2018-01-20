@@ -5,6 +5,9 @@
 #ifndef GAMESK2_GAMESTRUCTS_H
 #define GAMESK2_GAMESTRUCTS_H
 
+#define MAX_BULLETS 50
+#define MAX_PLAYERS 16
+
 typedef struct PlayerInput {
     bool left;
     bool right;
@@ -31,9 +34,9 @@ typedef struct PlayerState {
 
 typedef struct AllState {
     int numberOfPlayers{};
-    PlayerState players[16]{};
+    PlayerState players[MAX_PLAYERS]{};
     int numberOfBullets{};
-    Bullet bullets[30]{};
+    Bullet bullets[MAX_BULLETS]{};
 } AllState;
 
 #endif //GAMESK2_GAMESTRUCTS_H

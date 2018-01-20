@@ -132,7 +132,7 @@ int main() {
     circleSprite.setOrigin(50, 50);
     circleSprite.setPosition(400, 400);
 
-    vector<sf::Sprite> bulletSprites(30, sf::Sprite(bullet));
+    vector<sf::Sprite> bulletSprites(MAX_BULLETS, sf::Sprite(bullet));
 
 //    float bulletInterval = 2.0f;
     texture.setSmooth(true);

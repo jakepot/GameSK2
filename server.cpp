@@ -28,7 +28,6 @@ int playersNo = 0;
 int moveSpeed = 3;
 int serverFd;
 
-int maxBullets = 30;
 int mapSizeX = 800;
 int mapSizeY = 600;
 
@@ -81,12 +80,13 @@ void receiving() {
         }
         if (!noInput) {
             auto *input = (PlayerInput *) buffer;
-            //cout << "data from " << input->name << endl;
             for (auto &pl : players) {
                 if (strcmp(input->name, pl.name.c_str()) == 0) {
                     movePlayer(input, pl);
-                    if (input->shoot && bullets.size() < maxBullets) {
-                        bullets.push_back(Bullet{(float)pl.plState.x, (float)pl.plState.y, input->xDir, input->yDir});
+                    if (input->shoot && bullets.size() < MAX_BULLETS) {
+                        bullets.push_back(Bullet{(pl.plState.x + 50 * input->xDir),
+                                                 (pl.plState.y + 50 * input->yDir),
+                                                 input->xDir, input->yDir});
                     }
                 }
             }
@@ -97,8 +97,8 @@ void receiving() {
 int main() {
     random_device rd;
     mt19937 mt(rd());
-    uniform_int_distribution<int> idistx(0, 800);
-    uniform_int_distribution<int> idisty(0, 600);
+    uniform_int_distribution<int> idistx(0, mapSizeX);
+    uniform_int_distribution<int> idisty(0, mapSizeY);
 
     int timeToConnect = 20;
 
@@ -207,14 +207,27 @@ int main() {
 
         gameData.numberOfBullets = static_cast<int>(bullets.size());
 
+        bool hit = false;
+        
         auto i = bullets.begin();
         while (i != bullets.end()){
+            hit = false;
             i->xPos +=  i->xDir;
             i->yPos += i->yDir;
-            if (i->xPos < 0 || i->xPos > mapSizeX || i->yPos < 0 || i->yPos > mapSizeY)
+            if (i->xPos < 0 || i->xPos > mapSizeX || i->yPos < 0 || i->yPos > mapSizeY) {
                 i = bullets.erase(i);
-            else
-                i++;
+                continue;
+            }
+            else {
+                for (int j = 0; j < playersNo; j++) {
+                    if (max(abs(i->xPos - players[j].plState.x), abs(i->yPos - players[j].plState.y)) < 30) {
+                        i = bullets.erase(i);
+                        hit = true;
+                        break;
+                    }
+                }
+            }
+            if (!hit) i++;
         }
 
         copy(bullets.begin(), bullets.end(), gameData.bullets);
