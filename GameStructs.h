@@ -29,6 +29,8 @@ typedef struct Bullet {
 typedef struct PlayerState {
     int x;
     int y;
+    int xDir;
+    int yDir;
     char name[20];
     bool alive;
 } PlayerState;

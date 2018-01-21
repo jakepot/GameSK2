@@ -35,29 +35,39 @@ vector<PlayerInfo> players;
 vector<Bullet> bullets;
 
 void movePlayer(PlayerInput *input, PlayerInfo &pl) {
+    pl.plState.yDir = 0;
+    pl.plState.xDir = 0;
     if (input->left) {
         if (pl.plState.x - moveSpeed < 0)
             pl.plState.x = 0;
-        else
+        else {
             pl.plState.x -= moveSpeed;
+            pl.plState.xDir -= 1;
+        }
     }
     if (input->right) {
         if (pl.plState.x + moveSpeed > mapSizeX)
             pl.plState.x = mapSizeX;
-        else
+        else {
             pl.plState.x += moveSpeed;
+            pl.plState.xDir += 1;
+        }
     }
     if (input->up) {
         if (pl.plState.y - moveSpeed < 0)
             pl.plState.y = 0;
-        else
+        else {
             pl.plState.y -= moveSpeed;
+            pl.plState.yDir -= 1;
+        }
     }
     if (input->down) {
         if (pl.plState.y + moveSpeed > mapSizeY)
             pl.plState.y = mapSizeY;
-        else
+        else {
             pl.plState.y += moveSpeed;
+            pl.plState.yDir += 1;
+        }
     }
 }
 
@@ -95,6 +105,16 @@ void receiving() {
                 }
             }
         }
+    }
+}
+
+void sending(socklen_t slen) {
+    while(true){
+        if (players.empty()) break;
+        for (auto pl : players) {
+            sendto(serverFd, &gameData, sizeof(gameData), 0, (sockaddr *) &pl.address, slen);
+        }
+        usleep(50000);
     }
 }
 
@@ -163,7 +183,6 @@ int main() {
             PlayerInfo inf{};
             inf.name = buffer;
             inf.address = clientAddr;
-            //playersNo++;
             players.push_back(inf);
 
             string returnMessage = "welcome";
@@ -198,21 +217,20 @@ int main() {
     read_timeout.tv_usec = 50000; // im wieksze tym mniejszy lag ale stutter przy obracaniu
     setsockopt(serverFd, SOL_SOCKET, SO_RCVTIMEO, &read_timeout, sizeof read_timeout);
 
-    thread t(receiving);
+    thread recthread(receiving);
+    thread sendthread(sending, slen);
 
     while (true) {
         if (players.empty())
             break;
 
-        char buffer[2048];
-        memset(buffer, 0, sizeof(buffer));
+        //char buffer[2048];
+        //memset(buffer, 0, sizeof(buffer));
 
         gameData.numberOfPlayers = (int)players.size();
         for (int i = 0; i < gameData.numberOfPlayers; i++) {
             gameData.players[i] = players[i].plState;
         }
-
-        gameData.numberOfBullets = static_cast<int>(bullets.size());
 
         bool hit;
 
@@ -236,6 +254,8 @@ int main() {
                         i = bullets.erase(i);
                         //j = players.erase(j);
                         j->plState.alive = false;
+                        j->plState.xDir = 0;
+                        j->plState.yDir = 0;
                         hit = true;
                         break;
                     }
@@ -245,13 +265,14 @@ int main() {
             if (!hit) i++;
         }
 
+        gameData.numberOfBullets = static_cast<int>(bullets.size());
         copy(bullets.begin(), bullets.end(), gameData.bullets);
 
-        for (auto pl : players) {
-            sendto(serverFd, &gameData, sizeof(gameData), 0, (sockaddr *) &pl.address, slen);
-        }
-
         usleep(16667); // 60 Hz
+        //usleep(50000); // 20 Hz
+        //usleep(150000);
     }
+    recthread.join();
+    sendthread.join();
     return 0;
 }
