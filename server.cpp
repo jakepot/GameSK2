@@ -1,7 +1,3 @@
-//
-// Created by jakub on 13.12.17.
-//
-
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -22,9 +18,11 @@ typedef struct PlayerInfo {
     string name;
     sockaddr_in address{};
     PlayerState plState{};
+    chrono::steady_clock::time_point lastShot;
 } PlayerInfo;
 
-int moveSpeed = 3;
+int moveSpeed = 2;
+int bulletInterval = 500;
 int serverFd;
 
 int mapSizeX = 800;
@@ -34,41 +32,13 @@ AllState gameData;
 vector<PlayerInfo> players;
 vector<Bullet> bullets;
 
-void movePlayer(PlayerInput *input, PlayerInfo &pl) {
+void setPlayerDir(PlayerInput *input, PlayerInfo &pl) {
     pl.plState.yDir = 0;
     pl.plState.xDir = 0;
-    if (input->left) {
-        if (pl.plState.x - moveSpeed < 0)
-            pl.plState.x = 0;
-        else {
-            pl.plState.x -= moveSpeed;
-            pl.plState.xDir -= 1;
-        }
-    }
-    if (input->right) {
-        if (pl.plState.x + moveSpeed > mapSizeX)
-            pl.plState.x = mapSizeX;
-        else {
-            pl.plState.x += moveSpeed;
-            pl.plState.xDir += 1;
-        }
-    }
-    if (input->up) {
-        if (pl.plState.y - moveSpeed < 0)
-            pl.plState.y = 0;
-        else {
-            pl.plState.y -= moveSpeed;
-            pl.plState.yDir -= 1;
-        }
-    }
-    if (input->down) {
-        if (pl.plState.y + moveSpeed > mapSizeY)
-            pl.plState.y = mapSizeY;
-        else {
-            pl.plState.y += moveSpeed;
-            pl.plState.yDir += 1;
-        }
-    }
+    if (input->left) pl.plState.xDir -= 1;
+    if (input->right) pl.plState.xDir += 1;
+    if (input->up) pl.plState.yDir -= 1;
+    if (input->down) pl.plState.yDir += 1;
 }
 
 void receiving() {
@@ -95,11 +65,13 @@ void receiving() {
             for (auto &pl : players) {
                 if (strcmp(input->name, pl.name.c_str()) == 0) {
                     if (!pl.plState.alive) break;
-                    movePlayer(input, pl);
-                    if (input->shoot && bullets.size() < MAX_BULLETS) {
+                    setPlayerDir(input, pl);
+                    if (input->shoot && bullets.size() < MAX_BULLETS
+                            && (chrono::steady_clock::now() - pl.lastShot) > chrono::milliseconds{bulletInterval}) {
                         bullets.push_back(Bullet{(pl.plState.x + 50 * input->xDir),
                                                  (pl.plState.y + 50 * input->yDir),
                                                  input->xDir, input->yDir});
+                        pl.lastShot = chrono::steady_clock::now();
                     }
                     break;
                 }
@@ -109,8 +81,10 @@ void receiving() {
 }
 
 void sending(socklen_t slen) {
+    unsigned int id = 1;
     while(true){
         if (players.empty()) break;
+        gameData.stateId = id++;
         for (auto pl : players) {
             sendto(serverFd, &gameData, sizeof(gameData), 0, (sockaddr *) &pl.address, slen);
         }
@@ -201,11 +175,14 @@ int main() {
     cout << endl << "Game starts now!" << endl << endl;
     string letsgomsg = "lets go";
 
+    chrono::steady_clock::time_point firstShot = chrono::steady_clock::now();
+
     for (auto &pl : players) {
         PlayerState st{idistx(mt), idisty(mt)};
         st.alive = true;
         strcpy(st.name, pl.name.c_str());
         pl.plState = st;
+        pl.lastShot = firstShot;
     }
 
     for (auto pl : players) {
@@ -214,7 +191,8 @@ int main() {
     }
 
     read_timeout.tv_sec = 0;
-    read_timeout.tv_usec = 50000; // im wieksze tym mniejszy lag ale stutter przy obracaniu
+    //read_timeout.tv_usec = 50000; // im wieksze tym mniejszy lag ale stutter przy obracaniu
+    read_timeout.tv_usec = 0; // im wieksze tym mniejszy lag ale stutter przy obracaniu
     setsockopt(serverFd, SOL_SOCKET, SO_RCVTIMEO, &read_timeout, sizeof read_timeout);
 
     thread recthread(receiving);
@@ -224,15 +202,43 @@ int main() {
         if (players.empty())
             break;
 
-        //char buffer[2048];
-        //memset(buffer, 0, sizeof(buffer));
-
         gameData.numberOfPlayers = (int)players.size();
         for (int i = 0; i < gameData.numberOfPlayers; i++) {
             gameData.players[i] = players[i].plState;
         }
 
         bool hit;
+
+        for (auto &pl : players) {
+            if (pl.plState.xDir == -1) {
+                if (pl.plState.x - moveSpeed < 0)
+                    pl.plState.x = 0;
+                else {
+                    pl.plState.x -= moveSpeed;
+                }
+            }
+            if (pl.plState.xDir == 1) {
+                if (pl.plState.x + moveSpeed > mapSizeX)
+                    pl.plState.x = mapSizeX;
+                else {
+                    pl.plState.x += moveSpeed;
+                }
+            }
+            if (pl.plState.yDir == -1) {
+                if (pl.plState.y - moveSpeed < 0)
+                    pl.plState.y = 0;
+                else {
+                    pl.plState.y -= moveSpeed;
+                }
+            }
+            if (pl.plState.yDir == 1) {
+                if (pl.plState.y + moveSpeed > mapSizeY)
+                    pl.plState.y = mapSizeY;
+                else {
+                    pl.plState.y += moveSpeed;
+                }
+            }
+        }
 
         auto i = bullets.begin();
         while (i != bullets.end()){
@@ -252,7 +258,6 @@ int main() {
                     }
                     if (max(abs(i->xPos - j->plState.x), abs(i->yPos - j->plState.y)) < 30) {
                         i = bullets.erase(i);
-                        //j = players.erase(j);
                         j->plState.alive = false;
                         j->plState.xDir = 0;
                         j->plState.yDir = 0;
@@ -270,7 +275,6 @@ int main() {
 
         usleep(16667); // 60 Hz
         //usleep(50000); // 20 Hz
-        //usleep(150000);
     }
     recthread.join();
     sendthread.join();

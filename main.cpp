@@ -29,6 +29,8 @@ vector<sf::Sprite> bulletSprites;
 vector<sf::Sprite> timbSprites;
 vector<sf::Sprite> sprites;
 
+sf::Text playersLeftText;
+
 sf::UdpSocket socket;
 
 sf::Clock lastUpdate;
@@ -39,8 +41,9 @@ PlayerInput input;
 
 sf::RenderWindow window;
 
+unsigned int latestState = 0;
 int controls = 0;
-int moveSpeed = 3;
+int moveSpeed = 2;
 
 void sendInput(sf::IpAddress recipient, unsigned short port) {
     if (controls == 0) {
@@ -61,17 +64,14 @@ void sendInput(sf::IpAddress recipient, unsigned short port) {
     sf::Vector2f aimDirection =
             sf::Vector2f(mousePos) - sf::Vector2f(window.getSize().x / 2, window.getSize().y / 2);
 
-    //if (input.up || input.right || input.left || input.down || input.shoot) {
-        if (input.shoot) {
-            sf::Vector2f normalDir = normalize(aimDirection);
-            input.xDir = normalDir.x;
-            input.yDir = normalDir.y;
-        }
-        if (socket.send(&input, sizeof input, recipient, port) != sf::Socket::Done) {
-            std::cout << "send error" << std::endl;
-
-        }
-    //}
+    if (input.shoot) {
+        sf::Vector2f normalDir = normalize(aimDirection);
+        input.xDir = normalDir.x;
+        input.yDir = normalDir.y;
+    }
+    if (socket.send(&input, sizeof input, recipient, port) != sf::Socket::Done) {
+        std::cout << "send error" << std::endl;
+    }
 }
 
 void receiveData(PlayerState playersArr[], Bullet bulletsArr[]) {
@@ -87,32 +87,33 @@ void receiveData(PlayerState playersArr[], Bullet bulletsArr[]) {
 
         lastUpdate.restart();
 
-        //auto *state = (AllState *) gameData;
         state = (AllState *) gameData;
 
-        //int me = 0;
+        // if the packet is not outdated update game state
+        if (state->stateId > latestState) {
 
-        playersNum = state->numberOfPlayers;
+            latestState = state->stateId;
 
-        for (int i = 0; i < state->numberOfPlayers; i++) {
-            playersArr[i] = state->players[i];
-            //playersArr[i].position = {(float)state->players[i].x, (float)state->players[i].y};
-            //playersArr[i].alive = state->players[i].alive;
-            sprites[i].setPosition(state->players[i].x, state->players[i].y);
-            timbSprites[i].setPosition(state->players[i].x, state->players[i].y);
-            if (strcmp(myID.c_str(), state->players[i].name) == 0)
-                me = i;
-        }
+            playersNum = state->numberOfPlayers;
+            int playersAlive = 0;
 
-        bulletsNum = state->numberOfBullets;
+            for (int i = 0; i < state->numberOfPlayers; i++) {
+                if (state->players[i].alive) playersAlive++;
+                playersArr[i] = state->players[i];
+                sprites[i].setPosition(state->players[i].x, state->players[i].y);
+                timbSprites[i].setPosition(state->players[i].x, state->players[i].y);
+                if (strcmp(myID.c_str(), state->players[i].name) == 0)
+                    me = i;
+            }
 
-        for (int i = 0; i < state->numberOfBullets; i++) {
-//            bulletsArr[i].xDir = state->bullets[i].xDir;
-//            bulletsArr[i].yDir = state->bullets[i].yDir;
-//            bulletsArr[i].xPos = state->bullets[i].xPos;
-//            bulletsArr[i].yPos = state->bullets[i].yPos;
-            bulletsArr[i] = state->bullets[i];
-            bulletSprites[i].setPosition(state->bullets[i].xPos, state->bullets[i].yPos);
+            bulletsNum = state->numberOfBullets;
+
+            for (int i = 0; i < state->numberOfBullets; i++) {
+                bulletsArr[i] = state->bullets[i];
+                bulletSprites[i].setPosition(state->bullets[i].xPos, state->bullets[i].yPos);
+            }
+
+            playersLeftText.setString("Players left: " + to_string(playersAlive));
         }
     }
 }
@@ -142,6 +143,7 @@ int main() {
     gameStarted = false;
 
     sf::IpAddress recipient = "127.0.0.1";
+//    sf::IpAddress recipient = "138.197.190.159"; // remote server address
     unsigned short port = 50000;
 
     unsigned short startport = 54000;
@@ -155,6 +157,20 @@ int main() {
     window.create(sf::VideoMode(800, 600), "piu piu piu");
     window.setKeyRepeatEnabled(false);
     window.setVerticalSyncEnabled(true);
+
+    sf::Font font;
+    if (!font.loadFromFile("resources/LiberationMono-Bold.ttf"))
+    {
+        cout << "font loading error" << endl;
+        return 0;
+    }
+
+    //sf::Text playersLeftText;
+    playersLeftText.setFont(font);
+    playersLeftText.setString("Players left:");
+    playersLeftText.setCharacterSize(24);
+    playersLeftText.setColor(sf::Color::White);
+    playersLeftText.setPosition(20, 550);
 
     sf::View view(sf::Vector2f(128, 128), sf::Vector2f(400, 300));
 
@@ -269,6 +285,7 @@ int main() {
         //interpolacja
         if (state != nullptr) {
             auto elapsed = lastUpdate.getElapsedTime().asSeconds() * 60.0; // 60 Hz server freq
+            // obecny problem - * 60 rozjeżdża się z usleepem na serwerze
             for (int i = 0; i < bulletsNum; i++) {
                 bulletSprites[i].setPosition((float)(bulletArr[i].xPos + bulletArr[i].xDir * elapsed),
                                              (float)(bulletArr[i].yPos + bulletArr[i].yDir * elapsed));
@@ -288,6 +305,8 @@ int main() {
             window.draw((playerArr[i].alive ? sprites : timbSprites)[i]);
         for (int i = 0; i < bulletsNum; i++)
             window.draw(bulletSprites[i]);
+        window.setView(window.getDefaultView());
+        window.draw(playersLeftText);
         window.display();
     }
     r.join();
