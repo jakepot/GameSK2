@@ -48,33 +48,28 @@ void receiving() {
         if (players.empty()) break;
         char buffer[2048];
         memset(buffer, 0, sizeof(buffer));
-        bool noInput = false;
-        ssize_t recsize;
 
         try {
-            recsize = recvfrom(serverFd, buffer, sizeof buffer, 0, (sockaddr *) &clientAddr, &slen);
-            if (recsize < 0) {
-                noInput = true;
-            }
+            ssize_t recsize = recvfrom(serverFd, buffer, sizeof buffer, 0, (sockaddr *) &clientAddr, &slen);
+            if (recsize != sizeof(PlayerInput))
+                continue;
         } catch(const exception &e) {
             cerr << e.what() << '\n';
         }
 
-        if (!noInput) {
-            auto *input = (PlayerInput *) buffer;
-            for (auto &pl : players) {
-                if (strcmp(input->name, pl.name.c_str()) == 0) {
-                    if (!pl.plState.alive) break;
-                    setPlayerDir(input, pl);
-                    if (input->shoot && bullets.size() < MAX_BULLETS
-                            && (chrono::steady_clock::now() - pl.lastShot) > chrono::milliseconds{bulletInterval}) {
-                        bullets.push_back(Bullet{(pl.plState.x + 50 * input->xDir),
-                                                 (pl.plState.y + 50 * input->yDir),
-                                                 input->xDir, input->yDir});
-                        pl.lastShot = chrono::steady_clock::now();
-                    }
-                    break;
+        auto *input = (PlayerInput *) buffer;
+        for (auto &pl : players) {
+            if (strcmp(input->name, pl.name.c_str()) == 0) {
+                if (!pl.plState.alive) break;
+                setPlayerDir(input, pl);
+                if (input->shoot && bullets.size() < MAX_BULLETS
+                        && (chrono::steady_clock::now() - pl.lastShot) > chrono::milliseconds{bulletInterval}) {
+                    bullets.push_back(Bullet{(pl.plState.x + 50 * input->xDir),
+                                             (pl.plState.y + 50 * input->yDir),
+                                             input->xDir, input->yDir});
+                    pl.lastShot = chrono::steady_clock::now();
                 }
+                break;
             }
         }
     }
@@ -118,7 +113,6 @@ int main() {
     }
     sockaddr_in clientAddr{};
     socklen_t slen = sizeof(clientAddr);
-    ssize_t recsize;
 
     cout << "Server up on " << inet_ntoa(serverAddr.sin_addr) << " : " << ntohs(serverAddr.sin_port) << endl;
 
@@ -133,7 +127,7 @@ int main() {
         char buffer[255];
         memset(buffer, 0, sizeof(buffer));
 
-        recsize = recvfrom(serverFd, buffer, sizeof buffer, 0, (sockaddr *) &clientAddr, &slen);
+        ssize_t recsize = recvfrom(serverFd, buffer, sizeof buffer, 0, (sockaddr *) &clientAddr, &slen);
         if (recsize < 0) {
             if (time(nullptr) - start > timeToConnect)
                 break;
@@ -141,19 +135,25 @@ int main() {
                 continue;
         }
 
-        bool nameInUse = false;
+        bool nameBad = false;
 
         for (auto pl : players) {
             if (strcmp(pl.name.c_str(), buffer) == 0) {
                 cout << pl.name.c_str() << "  =  " << buffer << endl;
-                nameInUse = true;
+                nameBad = true;
                 string returnMessage = "nameinuse";
                 sendto(serverFd, returnMessage.c_str(), returnMessage.size(), 0, (sockaddr *) &clientAddr, slen);
                 break;
             }
         }
 
-        if (!nameInUse) {
+        if (strlen(buffer) >= 20) {
+            nameBad = true;
+            string returnMessage = "nametoolong";
+            sendto(serverFd, returnMessage.c_str(), returnMessage.size(), 0, (sockaddr *) &clientAddr, slen);
+        }
+
+        if (!nameBad) {
             PlayerInfo inf{};
             inf.name = buffer;
             inf.address = clientAddr;
@@ -173,7 +173,7 @@ int main() {
     }
 
     cout << endl << "Game starts now!" << endl << endl;
-    string letsgomsg = "lets go";
+    string startMessage = "lets go";
 
     chrono::steady_clock::time_point firstShot = chrono::steady_clock::now();
 
@@ -187,12 +187,12 @@ int main() {
 
     for (auto pl : players) {
         cout << pl.name << " : " << pl.plState.x << " - " << pl.plState.y << endl;
-        sendto(serverFd, letsgomsg.c_str(), letsgomsg.size(), 0, (sockaddr *) &pl.address, slen);
+        sendto(serverFd, startMessage.c_str(), startMessage.size(), 0, (sockaddr *) &pl.address, slen);
     }
 
     read_timeout.tv_sec = 0;
-    //read_timeout.tv_usec = 50000; // im wieksze tym mniejszy lag ale stutter przy obracaniu
-    read_timeout.tv_usec = 0; // im wieksze tym mniejszy lag ale stutter przy obracaniu
+    //read_timeout.tv_usec = 50000;
+    read_timeout.tv_usec = 0;
     setsockopt(serverFd, SOL_SOCKET, SO_RCVTIMEO, &read_timeout, sizeof read_timeout);
 
     thread recthread(receiving);
@@ -206,8 +206,6 @@ int main() {
         for (int i = 0; i < gameData.numberOfPlayers; i++) {
             gameData.players[i] = players[i].plState;
         }
-
-        bool hit;
 
         for (auto &pl : players) {
             if (pl.plState.xDir == -1) {
@@ -242,7 +240,7 @@ int main() {
 
         auto i = bullets.begin();
         while (i != bullets.end()){
-            hit = false;
+            bool hit = false;
             i->xPos +=  i->xDir;
             i->yPos += i->yDir;
             if (i->xPos < 0 || i->xPos > mapSizeX || i->yPos < 0 || i->yPos > mapSizeY) {
