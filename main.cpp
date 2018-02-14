@@ -245,9 +245,12 @@ int main() {
         std::cout << "receive error" << std::endl;
     }
 
-    cout << "Message: " << data << endl;
     if (strcmp(data, "nameinuse") == 0) {
         cout << "This name is already in use. Bye bye." << endl;
+        return -1;
+    }
+    if (strcmp(data, "nametoolong") == 0) {
+        cout << "This name is too long. Bye bye." << endl;
         return -1;
     }
 
