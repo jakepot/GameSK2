@@ -5,6 +5,7 @@
 #include <sstream>
 #include <cstring>
 #include <atomic>
+#include <fstream>
 #include "GameStructs.h"
 
 using namespace std;
@@ -142,9 +143,17 @@ int main() {
 
     gameStarted = false;
 
-    sf::IpAddress recipient = "127.0.0.1";
-//    sf::IpAddress recipient = "138.197.190.159"; // remote server address
-    unsigned short port = 50000;
+    string tmp;
+    string cnf_addr;
+    string cnf_port;
+
+    fstream config("resources/config.cnf");
+
+    config >> tmp >> cnf_addr;
+    config >> tmp >> cnf_port;
+
+    sf::IpAddress recipient = cnf_addr;
+    unsigned short port = stoi(cnf_port);
 
     unsigned short startport = 54000;
 
@@ -287,8 +296,8 @@ int main() {
 
         //interpolacja
         if (state != nullptr) {
-            auto elapsed = lastUpdate.getElapsedTime().asSeconds() * 60.0; // 60 Hz server freq
-            // obecny problem - * 60 rozjeżdża się z usleepem na serwerze
+            auto elapsed = lastUpdate.getElapsedTime().asSeconds();
+
             for (int i = 0; i < bulletsNum; i++) {
                 bulletSprites[i].setPosition((float)(bulletArr[i].xPos + bulletArr[i].xDir * elapsed),
                                              (float)(bulletArr[i].yPos + bulletArr[i].yDir * elapsed));
