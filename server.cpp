@@ -198,7 +198,7 @@ int main() {
     thread recthread(receiving);
     thread sendthread(sending, slen);
 
-    chrono::time_point loopStart;
+    chrono::high_resolution_clock::time_point loopStart;
 
     while (true) {
         loopStart = chrono::high_resolution_clock::now();
