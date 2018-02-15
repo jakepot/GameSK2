@@ -34,7 +34,7 @@ sf::Text playersLeftText;
 
 sf::UdpSocket socket;
 
-sf::Clock lastUpdate;
+chrono::high_resolution_clock::time_point lastUpdate;
 
 string myID;
 
@@ -86,14 +86,14 @@ void receiveData(PlayerState playersArr[], Bullet bulletsArr[]) {
             std::cout << "receive error" << std::endl;
         }
 
-        lastUpdate.restart();
-
         state = (AllState *) gameData;
 
         // if the packet is not outdated update game state
         if (state->stateId > latestState) {
 
             latestState = state->stateId;
+
+            lastUpdate = chrono::high_resolution_clock::now();
 
             playersNum = state->numberOfPlayers;
             int playersAlive = 0;
@@ -115,6 +115,7 @@ void receiveData(PlayerState playersArr[], Bullet bulletsArr[]) {
             }
 
             playersLeftText.setString("Players left: " + to_string(playersAlive));
+
         }
     }
 }
@@ -296,7 +297,7 @@ int main() {
 
         //interpolacja
         if (state != nullptr) {
-            auto elapsed = lastUpdate.getElapsedTime().asSeconds() * 60.0; // 60 Hz server freq
+            auto elapsed = chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now() - lastUpdate).count() * 60.0 / 1000.0; // 60 Hz server freq
             // obecny problem - * 60 rozjeżdża się z usleepem na serwerze
             for (int i = 0; i < bulletsNum; i++) {
                 bulletSprites[i].setPosition((float)(bulletArr[i].xPos + bulletArr[i].xDir * elapsed),
