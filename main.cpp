@@ -296,8 +296,8 @@ int main() {
 
         //interpolacja
         if (state != nullptr) {
-            auto elapsed = lastUpdate.getElapsedTime().asSeconds();
-
+            auto elapsed = lastUpdate.getElapsedTime().asSeconds() * 60.0; // 60 Hz server freq
+            // obecny problem - * 60 rozjeżdża się z usleepem na serwerze
             for (int i = 0; i < bulletsNum; i++) {
                 bulletSprites[i].setPosition((float)(bulletArr[i].xPos + bulletArr[i].xDir * elapsed),
                                              (float)(bulletArr[i].yPos + bulletArr[i].yDir * elapsed));

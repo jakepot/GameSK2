@@ -198,7 +198,10 @@ int main() {
     thread recthread(receiving);
     thread sendthread(sending, slen);
 
+    chrono::time_point loopStart;
+
     while (true) {
+        loopStart = chrono::high_resolution_clock::now();
         if (players.empty())
             break;
 
@@ -271,7 +274,7 @@ int main() {
         gameData.numberOfBullets = static_cast<int>(bullets.size());
         copy(bullets.begin(), bullets.end(), gameData.bullets);
 
-        usleep(16667); // 60 Hz
+        usleep(16666 - chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now() - loopStart).count()); // 60 Hz
         //usleep(50000); // 20 Hz
     }
     recthread.join();
